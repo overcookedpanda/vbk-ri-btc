@@ -5,7 +5,6 @@
 
 #include <boost/test/unit_test.hpp>
 #include <vbk/test/util/e2e_fixture.hpp>
-#include <vbk/test/util/tx.hpp>
 #include <vbk/pop_service_impl.hpp>
 
 struct PopRewardsTestFixture : public E2eFixture {
