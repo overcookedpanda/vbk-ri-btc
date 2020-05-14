@@ -146,6 +146,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // VeriBlock: add PopData into the block
     pblock->v_popData = VeriBlock::getService<VeriBlock::PopService>().getPopData(*pindexPrev);
+    if (!pblock->v_popData.empty()) {
+        pblock->nVersion |= VeriBlock::POP_BLOCK_VERSION_BIT;
+    }
+
 
     int64_t nTime1 = GetTimeMicros();
 
