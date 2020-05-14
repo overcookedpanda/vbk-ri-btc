@@ -243,4 +243,15 @@ BOOST_AUTO_TEST_CASE(block_serialization_test)
     BOOST_CHECK(decoded_block.v_popData[1] == block.v_popData[1]);
 }
 
+BOOST_FIXTURE_TEST_CASE(BlockPoPVersion_test, E2eFixture)
+{
+    for (size_t i = 0; i < 400; ++i) {
+        CreateAndProcessBlock({}, ChainActive().Tip()->GetBlockHash(), cbKey);
+    }
+
+    auto block = CreateAndProcessBlock({}, ChainActive().Tip()->GetBlockHash(), cbKey);
+
+}
+
+
 BOOST_AUTO_TEST_SUITE_END()

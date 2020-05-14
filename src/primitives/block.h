@@ -9,6 +9,7 @@
 #include <primitives/transaction.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <vbk/config.hpp>
 
 #include "veriblock/entities/popdata.hpp"
 
@@ -98,7 +99,10 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CBlockHeader, *this);
         READWRITE(vtx);
-        READWRITE(v_popData);
+        if (this->nVersion & VeriBlock::POP_BLOCK_VERSION_BIT)
+        {
+            READWRITE(v_popData);
+        }
     }
 
     void SetNull()
