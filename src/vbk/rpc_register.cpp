@@ -171,15 +171,15 @@ UniValue submitpop(const JSONRPCRequest& request)
 
     altintegration::ValidationState state;
     if (!pop_mempool.submitATV({ altintegration::ATV::fromVbkEncoding(atv_bytes) }, state)) {
-        LogPrint(BCLog::POP, "VeriBlock-PoP: %s ", state.GetPath());
-        return "ivalid ATV";
+        LogPrint(BCLog::POP, "VeriBlock-PoP: %s ", state.toString());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid ATV: " + state.toString());
     }
     if (!pop_mempool.submitVTB(vtbs, state)) {
-        LogPrint(BCLog::POP, "VeriBlock-PoP: %s ", state.GetPath());
-        return "invalid oone of the VTB";
+        LogPrint(BCLog::POP, "VeriBlock-PoP: %s ", state.toString());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "one of the VTBs is invalid: " + state.toString());
     }
 
-    return "successful added";
+    return "added successfully";
 }
 
 UniValue debugpop(const JSONRPCRequest& request) {
