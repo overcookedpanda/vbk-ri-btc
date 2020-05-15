@@ -225,11 +225,9 @@ bool PopServiceImpl::setState(const uint256& block, altintegration::ValidationSt
     return altTree->setState(block.asVector(), state);
 }
 
-std::vector<altintegration::PopData> PopServiceImpl::getPopData(const CBlockIndex& currentBlockIndex)
+std::vector<altintegration::PopData> PopServiceImpl::getPopData(const CBlockIndex& lastBlock)
 {
-    altintegration::AltBlock current = VeriBlock::blockToAltBlock(currentBlockIndex.nHeight, currentBlockIndex.GetBlockHeader());
-    altintegration::ValidationState state;
-    return mempool->getPop(current, *this->altTree);
+    return mempool->getPop(VeriBlock::blockToAltBlock(lastBlock), *altTree);
 }
 
 void PopServiceImpl::connectTip(const CBlockIndex& tipIndex, const CBlock& tip)
