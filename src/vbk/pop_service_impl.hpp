@@ -63,7 +63,7 @@ public:
     bool setState(const uint256& block, altintegration::ValidationState& state) override;
 
     std::vector<altintegration::PopData> getPopData(const CBlockIndex& currentBlockIndex) override;
-    void removePayloadsFromMempool(const std::vector<altintegration::PopData>& v_popData) override;
+    void connectTip(const CBlockIndex& tipIndex, const CBlock& tip) override;
 
     int compareForks(const CBlockIndex& left, const CBlockIndex& right) override;
 };
