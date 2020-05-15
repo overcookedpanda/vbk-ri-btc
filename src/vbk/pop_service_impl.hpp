@@ -64,6 +64,7 @@ public:
 
     std::vector<altintegration::PopData> getPopData(const CBlockIndex& currentBlockIndex) override;
     void connectTip(const CBlockIndex& tipIndex, const CBlock& tip) override;
+    void disconnectTip(const CBlockIndex& tipIndex, const CBlock& tip) override;
 
     int compareForks(const CBlockIndex& left, const CBlockIndex& right) override;
 };

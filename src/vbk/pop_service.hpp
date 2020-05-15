@@ -56,6 +56,7 @@ struct PopService {
 
     virtual std::vector<altintegration::PopData> getPopData(const CBlockIndex& currentBlockIndex) = 0;
     virtual void connectTip(const CBlockIndex& tipIndex, const CBlock& tip) = 0;
+    virtual void disconnectTip(const CBlockIndex& tipIndex, const CBlock& tip) = 0;
 
     virtual int compareForks(const CBlockIndex& left, const CBlockIndex& right) = 0;
 

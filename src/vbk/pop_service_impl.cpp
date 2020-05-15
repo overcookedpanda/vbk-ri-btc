@@ -235,6 +235,11 @@ void PopServiceImpl::connectTip(const CBlockIndex& tipIndex, const CBlock& tip)
     mempool->removePayloads(tip.v_popData);
 }
 
+void PopServiceImpl::disconnectTip(const CBlockIndex& tipIndex, const CBlock& tip)
+{
+    //TODO: implement
+}
+
 bool validatePopDataLimits(const altintegration::AltChainParams& config, const std::vector<altintegration::PopData>& v_pop_data, BlockValidationState& state)
 {
     if (v_pop_data.size() > config.getMaxPopDataPerBlock()) {

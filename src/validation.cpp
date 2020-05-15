@@ -2475,6 +2475,8 @@ bool CChainState::DisconnectTip(BlockValidationState& state, const CChainParams&
 
     m_chain.SetTip(pindexDelete->pprev);
 
+    VeriBlock::getService<VeriBlock::PopService>().disconnectTip(*pindexDelete, block);
+
     UpdateTip(pindexDelete->pprev, chainparams);
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
