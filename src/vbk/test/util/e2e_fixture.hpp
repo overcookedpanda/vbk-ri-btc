@@ -84,8 +84,8 @@ struct E2eFixture : public TestChain100Setup {
 
         auto& pop_mempool = pop->getMemPool();
         altintegration::ValidationState state;
-        BOOST_CHECK(pop_mempool.submitATV(atvs, state));
-        BOOST_CHECK(pop_mempool.submitVTB(vtbs, state));
+        BOOST_CHECK(pop_mempool.add(atvs, state));
+        BOOST_CHECK(pop_mempool.add(vtbs, state));
 
         bool isValid = false;
         return CreateAndProcessBlock({}, prevBlock, cbKey, &isValid);

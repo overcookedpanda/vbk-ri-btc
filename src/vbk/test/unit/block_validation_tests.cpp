@@ -92,7 +92,7 @@ BOOST_FIXTURE_TEST_CASE(BlockWithTooManyPublicationTxes, E2eFixture)
 
     auto& pop_mempool = pop->getMemPool();
     altintegration::ValidationState state;
-    BOOST_CHECK(pop_mempool.submitATV(atvs, state));
+    BOOST_CHECK(pop_mempool.add(atvs, state));
 
     bool isValid = false;
     CBlock block1 = CreateAndProcessBlock({}, ChainActive().Tip()->GetBlockHash(), cbKey, &isValid);
@@ -119,7 +119,7 @@ BOOST_FIXTURE_TEST_CASE(BlockWithLargePopData, E2eFixture)
     auto& pop_mempool = pop->getMemPool();
     altintegration::ValidationState state;
 
-    BOOST_CHECK(pop_mempool.submitVTB({ endorseVbkTip() }, state));
+    BOOST_CHECK(pop_mempool.add(endorseVbkTip(), state));
 
     std::vector<uint256> endorsedBlockHashes = { ChainActive().Tip()->GetBlockHash() , ChainActive().Tip()->pprev->GetBlockHash() };
     BOOST_CHECK_EQUAL(endorsedBlockHashes.size(), 2);
@@ -131,7 +131,7 @@ BOOST_FIXTURE_TEST_CASE(BlockWithLargePopData, E2eFixture)
     });
 
     BOOST_CHECK_EQUAL(endorsedBlockHashes.size(), atvs.size());
-    BOOST_CHECK(pop_mempool.submitATV(atvs, state));
+    BOOST_CHECK(pop_mempool.add(atvs, state));
 
     std::vector<altintegration::PopData> v_pop_data = pop->getPopData(*ChainActive().Tip());
     BOOST_CHECK_EQUAL(v_pop_data.size(), 2);

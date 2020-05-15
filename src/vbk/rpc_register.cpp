@@ -165,16 +165,17 @@ UniValue submitpop(const JSONRPCRequest& request)
 
     auto& atvhex = request.params[0];
     auto atv_bytes = ParseHexV(atvhex, "atv");
+    auto atv = altintegration::ATV::fromVbkEncoding(atv_bytes);
 
     auto& pop_service = VeriBlock::getService<VeriBlock::PopService>();
     auto& pop_mempool = pop_service.getMemPool();
 
     altintegration::ValidationState state;
-    if (!pop_mempool.submitVTB(vtbs, state)) {
+    if (!pop_mempool.add(vtbs, state)) {
         LogPrint(BCLog::POP, "VeriBlock-PoP: %s ", state.toString());
         throw JSONRPCError(RPC_INVALID_PARAMETER, "one of the VTBs is invalid: " + state.toString());
     }
-    if (!pop_mempool.submitATV({ altintegration::ATV::fromVbkEncoding(atv_bytes) }, state)) {
+    if (!pop_mempool.add(atv, state)) {
         LogPrint(BCLog::POP, "VeriBlock-PoP: %s ", state.toString());
         throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid ATV: " + state.toString());
     }
