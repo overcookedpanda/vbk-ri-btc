@@ -14,7 +14,7 @@
 #include <validation.h>
 #include <vbk/util.hpp>
 #include <veriblock/alt-util.hpp>
-#include <veriblock/mempool.hpp>
+#include <veriblock/mempool/mempool.hpp>
 #include <veriblock/mock_miner.hpp>
 
 using altintegration::AltPayloads;

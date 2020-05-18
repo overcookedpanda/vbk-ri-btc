@@ -28,6 +28,7 @@
 #include <veriblock/alt-util.hpp>
 #include <veriblock/altintegration.hpp>
 #include <veriblock/finalizer.hpp>
+#include <veriblock/mempool/pop_data_assembler.hpp>
 #include <veriblock/stateless_validation.hpp>
 #include <veriblock/validation_state.hpp>
 
@@ -194,7 +195,7 @@ PopServiceImpl::PopServiceImpl(const altintegration::Config& config)
 {
     config.validate();
     altTree = altintegration::Altintegration::create(config);
-    mempool = std::make_shared<altintegration::MemPool>(altTree->getParams(), altTree->vbk().getParams(), altTree->btc().getParams(), HashFunction);
+    mempool = std::make_shared<altintegration::MemPool>(altTree->getParams(), altTree->vbk().getParams(), altTree->btc().getParams());
 
     altTree->connectOnInvalidateBlock([&](const altintegration::BlockIndex<altintegration::AltBlock>& invalidated) {
         LOCK(cs_main);
@@ -227,7 +228,8 @@ bool PopServiceImpl::setState(const uint256& block, altintegration::ValidationSt
 
 std::vector<altintegration::PopData> PopServiceImpl::getPopData(const CBlockIndex& lastBlock)
 {
-    return mempool->getPop(VeriBlock::blockToAltBlock(lastBlock), *altTree);
+    altintegration::PopDataAssembler assembler(*mempool, HashFunction);
+    return assembler.getPop(VeriBlock::blockToAltBlock(lastBlock), *altTree);
 }
 
 void PopServiceImpl::connectTip(const CBlockIndex& tipIndex, const CBlock& tip)

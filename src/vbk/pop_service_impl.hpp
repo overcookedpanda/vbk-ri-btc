@@ -17,7 +17,7 @@
 #include <veriblock/altintegration.hpp>
 #include <veriblock/blockchain/alt_block_tree.hpp>
 #include <veriblock/config.hpp>
-#include <veriblock/mempool.hpp>
+#include <veriblock/mempool/mempool.hpp>
 
 namespace VeriBlock {
 
