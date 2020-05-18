@@ -249,13 +249,13 @@ bool validatePopDataLimits(const altintegration::AltChainParams& config, const s
     }
 
     if (v_pop_data.size() == 1) {
-        if (v_pop_data[0].toVbkEncoding().size() > 1000000) {
+        if (v_pop_data[0].toVbkEncoding().size() > config.getSuperMaxPopDataWeight()) {
             return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "pop-data-weight", "[" + std::to_string(v_pop_data.size()) + "] super weight pop_data limits");
         }
     }
     else {
         for (const auto& pop_data : v_pop_data) {
-            if (pop_data.toVbkEncoding().size() > 1000000) {
+            if (pop_data.toVbkEncoding().size() > config.getMaxPopDataWeight()) {
                 return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "pop-data-weight", "[" + std::to_string(v_pop_data.size()) + "] weight pop_data limits");
             }
         }
