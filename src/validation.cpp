@@ -2160,8 +2160,9 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
     }
 
     auto& pop = VeriBlock::getService<VeriBlock::PopService>();
-    if (!pop.addAllBlockPayloads(*pindex, block, state)) {
-        return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-block-pop-payloads", strprintf("Can not add POP payloads to block %s: %s", pindex->GetBlockHash().ToString(), FormatStateMessage(state)));
+    assert(pindex);
+    if(!pop.acceptBlock(*pindex, state)) {
+        return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-header", strprintf("Bad header %s", pindex->ToString()));
     }
     altintegration::ValidationState _state;
     if (!pop.setState(pindex->GetBlockHash(), _state)) {
@@ -2642,20 +2643,48 @@ bool CChainState::ConnectTip(BlockValidationState& state, const CChainParams& ch
 }
 
 /**
- * Return the tip of the chain with the most work in it, that isn't
- * known to be invalid (it's however far from certain to be valid).
+ * Return the tip of the chain with either most POP score, or fallback to
+ * most work (if pop score is 0) that isn't known to be invalid
+ * (it's however far from certain to be valid).
  */
-CBlockIndex* CChainState::FindMostWorkChain()
+CBlockIndex* CChainState::FindBestChain()
 {
     do {
-        CBlockIndex* pindexNew = nullptr;
+        CBlockIndex* pindexNew = m_chain.Tip();
 
         // Find the best candidate header.
         {
-            std::set<CBlockIndex*, CBlockIndexWorkComparator>::reverse_iterator it = setBlockIndexCandidates.rbegin();
-            if (it == setBlockIndexCandidates.rend())
+            auto& pop = VeriBlock::getService<VeriBlock::PopService>();
+            // iterate over set of block index candidates in ascending order
+            // so that we never have a "loop" A -> B -> C -> A
+            // we will pick chain with best POP score AND highest work
+            for (auto* candidate : setBlockIndexCandidates) {
+                if (pindexNew == nullptr) {
+                    pindexNew = candidate;
+                    altintegration::ValidationState _state;
+                    if (!pop.setState(pindexNew->GetBlockHash(), _state)) {
+                        // this candidate is not pop valid
+                        pindexNew = nullptr;
+                    }
+
+                    // do not compare this candidate to itself in POP FR
+                    continue;
+                }
+
+                assert(pindexNew != nullptr);
+                assert(candidate != nullptr);
+                int result = pop.compareForks(*pindexNew, *candidate);
+                // even if next candidate is pop equal to current pindexNew, it is likely to have higher work
+                if (result <= 0) {
+                    // candidate is either has POP or WORK better
+                    pindexNew = candidate;
+                    continue;
+                }
+            }
+
+            if (pindexNew == nullptr) {
                 return nullptr;
-            pindexNew = *it;
+            }
         }
 
         // Check whether all blocks on the path between the currently active chain and the candidate are valid.
@@ -2854,7 +2883,7 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
     // we use m_cs_chainstate to enforce mutual exclusion so that only one caller may execute this function at a time
     LOCK(m_cs_chainstate);
 
-    CBlockIndex* pindexMostWork = nullptr;
+    CBlockIndex* pindexBestTip = nullptr;
     CBlockIndex* pindexNewTip = nullptr;
     int nStopAtHeight = gArgs.GetArg("-stopatheight", DEFAULT_STOPATHEIGHT);
     do {
@@ -2877,18 +2906,18 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
                 // (with the exception of shutdown due to hardware issues, low disk space, etc).
                 ConnectTrace connectTrace(mempool); // Destructed before cs_main is unlocked
 
-                if (pindexMostWork == nullptr) {
-                    pindexMostWork = FindMostWorkChain();
+                if (pindexBestTip == nullptr) {
+                    pindexBestTip = FindBestChain();
                 }
 
                 // Whether we have anything to do at all.
-                if (pindexMostWork == nullptr || pindexMostWork == m_chain.Tip()) {
+                if (pindexBestTip == nullptr || pindexBestTip == m_chain.Tip()) {
                     break;
                 }
 
                 bool fInvalidFound = false;
                 std::shared_ptr<const CBlock> nullBlockPtr;
-                if (!ActivateBestChainStep(state, chainparams, pindexMostWork, pblock && pblock->GetHash() == pindexMostWork->GetBlockHash() ? pblock : nullBlockPtr, fInvalidFound, connectTrace)) {
+                if (!ActivateBestChainStep(state, chainparams, pindexBestTip, pblock && pblock->GetHash() == pindexBestTip->GetBlockHash() ? pblock : nullBlockPtr, fInvalidFound, connectTrace)) {
                     // A system error occurred
                     return false;
                 }
@@ -2896,7 +2925,7 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
 
                 if (fInvalidFound) {
                     // Wipe cache, we may need another branch now.
-                    pindexMostWork = nullptr;
+                    pindexBestTip = nullptr;
                 }
                 pindexNewTip = m_chain.Tip();
 
@@ -2930,7 +2959,7 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
         // that the best block hash is non-null.
         if (ShutdownRequested())
             break;
-    } while (pindexNewTip != pindexMostWork);
+    } while (pindexNewTip != pindexBestTip);
     CheckBlockIndex(chainparams.GetConsensus());
 
     // Write changes periodically to disk, after relay.
@@ -3799,15 +3828,16 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, Block
         return error("%s: %s", __func__, FormatStateMessage(state));
     }
 
-//    int popComparison = 0;
-//    if(m_chain.Tip()) {
-//        popComparison = VeriBlock::getService<VeriBlock::PopService>().compareForks(*m_chain.Tip(), *pindex);
-//    }
-
     // Header is valid/has work, merkle tree and segwit merkle tree are good...RELAY NOW
     // (but if it does not build on our best tip, let the SendMessages loop relay it)
     if (!IsInitialBlockDownload() && m_chain.Tip() == pindex->pprev)
         GetMainSignals().NewPoWValidBlock(pindex, pblock);
+
+    // add payloads to ALT tree
+    assert(pindex->pprev);
+    if(!VeriBlock::getService<VeriBlock::PopService>().addAllBlockPayloads(*pindex->pprev, *pblock, state)){
+        return state.Error(strprintf("%s: Failed to add POP payloads to block %s", __func__, block.GetHash().GetHex()));
+    }
 
     // Write block to history file
     if (fNewBlock) *fNewBlock = true;
