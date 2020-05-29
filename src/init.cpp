@@ -849,7 +849,7 @@ void InitLogging()
     LogInstance().m_log_threadnames = gArgs.GetBoolArg("-logthreadnames", DEFAULT_LOGTHREADNAMES);
     LogInstance().EnableCategory(BCLog::POP);
     altintegration::SetLogger<VeriBlock::VBTCLogger>();
-    altintegration::GetLogger().level = altintegration::LogLevel::info;
+    altintegration::GetLogger().level = altintegration::LogLevel::debug;
 
     fLogIPs = gArgs.GetBoolArg("-logips", DEFAULT_LOGIPS);
 

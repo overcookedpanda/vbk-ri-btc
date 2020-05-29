@@ -1725,7 +1725,9 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
         // because it is set in UpdateBlockAvailability. Some nullptr checks
         // are still present, however, as belt-and-suspenders.
 
-        if (received_new_header && pindexLast->nChainWork > ::ChainActive().Tip()->nChainWork) {
+        if (received_new_header
+            // VeriBlock: we have to download all blocks
+            /*&& pindexLast->nChainWork > ::ChainActive().Tip()->nChainWork*/) {
             nodestate->m_last_block_announcement = GetTime();
         }
 
@@ -1740,7 +1742,9 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
         bool fCanDirectFetch = CanDirectFetch(chainparams.GetConsensus());
         // If this set of headers is valid and ends in a block with at least as
         // much work as our tip, download as much as possible.
-        if (fCanDirectFetch && pindexLast->IsValid(BLOCK_VALID_TREE) && ::ChainActive().Tip()->nChainWork <= pindexLast->nChainWork) {
+        if (fCanDirectFetch && pindexLast->IsValid(BLOCK_VALID_TREE)
+            // VeriBlock: intentionally force ALL headers to be downloaded
+            /* && ::ChainActive().Tip()->nChainWork <= pindexLast->nChainWork */) {
             std::vector<const CBlockIndex*> vToFetch;
             const CBlockIndex *pindexWalk = pindexLast;
             // Calculate all the blocks we'd need to switch to pindexLast, up to a limit.
@@ -1753,15 +1757,15 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
                 }
                 pindexWalk = pindexWalk->pprev;
             }
-            // If pindexWalk still isn't on our main chain, we're looking at a
-            // very large reorg at a time we think we're close to caught up to
-            // the main chain -- this shouldn't really happen.  Bail out on the
-            // direct fetch and rely on parallel download instead.
-            if (!::ChainActive().Contains(pindexWalk)) {
-                LogPrint(BCLog::NET, "Large reorg, won't direct fetch to %s (%d)\n",
-                        pindexLast->GetBlockHash().ToString(),
-                        pindexLast->nHeight);
-            } else {
+//            // If pindexWalk still isn't on our main chain, we're looking at a
+//            // very large reorg at a time we think we're close to caught up to
+//            // the main chain -- this shouldn't really happen.  Bail out on the
+//            // direct fetch and rely on parallel download instead.
+//            if (!::ChainActive().Contains(pindexWalk)) {
+//                LogPrint(BCLog::NET, "Large reorg, won't direct fetch to %s (%d)\n",
+//                        pindexLast->GetBlockHash().ToString(),
+//                        pindexLast->nHeight);
+//            } else {
                 std::vector<CInv> vGetData;
                 // Download as much as possible, from earliest to latest.
                 for (const CBlockIndex *pindex : reverse_iterate(vToFetch)) {
@@ -1786,7 +1790,7 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
                     }
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::GETDATA, vGetData));
                 }
-            }
+//            }
         }
         // If we're in IBD, we want outbound peers that will serve us a useful
         // chain. Disconnect peers that are on chains with insufficient work.
