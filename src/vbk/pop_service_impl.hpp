@@ -78,6 +78,7 @@ public:
     void updatePopMempoolForReorg() override;
 
 
+    CBlockIndex* compareTipToBlock(const CBlock& block) override;
     int compareForks(const CBlockIndex& left, const CBlockIndex& right) override;
 };
 

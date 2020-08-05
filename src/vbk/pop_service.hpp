@@ -23,6 +23,7 @@ class COutPoint;
 class CBlockIndex;
 class uint256;
 class CScript;
+struct CBlockIndexWorkComparator;
 
 namespace altintegration {
 class ValidationState;
@@ -61,6 +62,7 @@ struct PopService {
     virtual void addDisconnectedPopdata(const altintegration::PopData& popData) = 0;
     virtual void updatePopMempoolForReorg() = 0;
 
+    virtual CBlockIndex* compareTipToBlock(const CBlock& block) = 0;
     virtual int compareForks(const CBlockIndex& left, const CBlockIndex& right) = 0;
 
     //! returns true if all tips are stored in database, false otherwise

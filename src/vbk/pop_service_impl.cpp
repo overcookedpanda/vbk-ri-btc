@@ -21,8 +21,8 @@
 #include <boost/thread/interruption.hpp>
 #endif //WIN32
 
-#include <vbk/p2p_sync.hpp>
 #include <vbk/adaptors/batch_adapter.hpp>
+#include <vbk/p2p_sync.hpp>
 #include <vbk/service_locator.hpp>
 #include <vbk/util.hpp>
 
@@ -160,7 +160,7 @@ bool PopServiceImpl::acceptBlock(const CBlockIndex& indexNew, BlockValidationSta
 bool PopServiceImpl::addAllBlockPayloads(int height, const CBlock& connecting, BlockValidationState& state) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     AssertLockHeld(cs_main);
-    if(height == 0) {
+    if (height == 0) {
         // do not add anything to genesis block
         return true;
     }
@@ -190,21 +190,20 @@ int PopServiceImpl::compareForks(const CBlockIndex& leftForkTip, const CBlockInd
 {
     AssertLockHeld(cs_main);
     if (&leftForkTip == &rightForkTip) {
-        return 0;
+        return 1;
     }
 
-    auto left = blockToAltBlock(leftForkTip);
-    auto right = blockToAltBlock(rightForkTip);
     auto state = altintegration::ValidationState();
-
-    if (!altTree->setState(left.hash, state)) {
-        if (!altTree->setState(right.hash, state)) {
+    auto left = leftForkTip.GetBlockHash().asVector();
+    auto right = rightForkTip.GetBlockHash().asVector();
+    if (!altTree->setState(left, state)) {
+        if (!altTree->setState(right, state)) {
             throw std::logic_error("both chains are invalid");
         }
         return -1;
     }
 
-    return altTree->comparePopScore(left.hash, right.hash);
+    return altTree->comparePopScore(left, right);
 }
 
 PopServiceImpl::PopServiceImpl(const altintegration::Config& config, CDBWrapper& db)
@@ -341,6 +340,43 @@ void PopServiceImpl::updatePopMempoolForReorg() EXCLUSIVE_LOCKS_REQUIRED(cs_main
         mempool->submitAll(popData);
     }
     disconnected_popdata.clear();
+}
+
+CBlockIndex* PopServiceImpl::compareTipToBlock(const CBlock& block)
+{
+    AssertLockHeld(cs_main);
+    auto blockHash = block.GetHash();
+    auto* candidate = LookupBlockIndex(blockHash);
+    assert(candidate != nullptr && "block has no according header in block tree");
+
+    auto* tip = ChainActive().Tip();
+    if (!tip) {
+        // if tip is not set, candidate wins
+        return candidate;
+    }
+
+    auto tipHash = tip->GetBlockHash();
+    if (tipHash == blockHash) {
+        // we compare tip with itself
+        return tip;
+    }
+
+    auto state = altintegration::ValidationState();
+
+    int result = compareForks(*tip, *candidate);
+    if (
+        // candidate has higher POP score
+        result < 0 ||
+        // POP score is equal, compare by chainwork
+        (result == 0 &&
+            // candidate chainwork is higher
+            tip->nChainWork < candidate->nChainWork)) {
+        // candidate wins
+        return candidate;
+    }
+
+    // current chain wins
+    return tip;
 }
 
 bool checkPopDataSize(const altintegration::PopData& popData, altintegration::ValidationState& state)

@@ -1405,6 +1405,10 @@ void CChainState::InvalidBlockFound(CBlockIndex* pindex, const BlockValidationSt
         setDirtyBlockIndex.insert(pindex);
         setBlockIndexCandidates.erase(pindex);
         InvalidChainFound(pindex);
+
+        VeriBlock::getService<VeriBlock::PopService>()
+            .getAltTree()
+            .invalidateSubtree(pindex->GetBlockHash().asVector(), altintegration::BLOCK_FAILED_BLOCK);
     }
 }
 
@@ -2639,43 +2643,111 @@ bool CChainState::ConnectTip(BlockValidationState& state, const CChainParams& ch
     return true;
 }
 
-/**
- * Return the tip of the chain with the most work in it, that isn't
- * known to be invalid (it's however far from certain to be valid).
- */
-CBlockIndex* CChainState::FindBestChain()
+// this function is called with nullptr when tip is nullptr
+// and with block if new block arrives.
+//
+// attempt to invoke POP FR only between tip and new block.
+// if pop FR can not be invoked for any reason, do POP FR between all candidates.
+CBlockIndex* CChainState::FindBestChain(std::shared_ptr<const CBlock> block)
 {
     AssertLockHeld(cs_main);
-    auto& pop_service = VeriBlock::getService<VeriBlock::PopService>();
+    auto& pop = VeriBlock::getService<VeriBlock::PopService>();
     CBlockIndex* bestCandidate = m_chain.Tip();
+    assert(bestCandidate && "Can find best chain only if TIP is not nullptr");
+
+    // when executed with new block, try to do POP FR between current tip and new block
+    if (block != nullptr) {
+        auto* candidate = LookupBlockIndex(block->GetHash());
+        assert(candidate && "candidate header must exist");
+        if(candidate->HaveTxsDownloaded() && TestBlockIndex(candidate)) {
+            // candidate has txes downloaded and can be used in POP FR
+            return pop.compareTipToBlock(*block);
+        }
+    }
+
+    // we just started, or we received new block and NOT (yet) its transactions,
+    // we need to determine best chain among all candidates
 
     // return early
     if (setBlockIndexCandidates.empty()) {
         return nullptr;
     }
 
-    auto temp_set = setBlockIndexCandidates;
-    for (auto* pindexNew : temp_set) {
+    assert(bestCandidate != nullptr && "best chain must be set");
+    auto copy = setBlockIndexCandidates;
+    for (auto* pindexNew : copy) {
         if (pindexNew == bestCandidate || !TestBlockIndex(pindexNew)) {
             continue;
         }
-
-        if (bestCandidate == nullptr) {
-            bestCandidate = pindexNew;
-            continue;
-        }
-
-        int popComparisonResult = pop_service.compareForks(*bestCandidate, *pindexNew);
+        int popComparisonResult = pop.compareForks(*bestCandidate, *pindexNew);
         // even if next candidate is pop equal to current pindexNew, it is likely to have higher work
         if (popComparisonResult <= 0) {
             // candidate is either has POP or WORK better
             bestCandidate = pindexNew;
         }
     }
-
-    // update best header after POP FR
-    pindexBestHeader = bestCandidate;
     return bestCandidate;
+}
+
+
+/**
+ * Return the tip of the chain with the most work in it, that isn't
+ * known to be invalid (it's however far from certain to be valid).
+ */
+CBlockIndex* CChainState::FindMostWorkChain()
+{
+    do {
+        CBlockIndex *pindexNew = nullptr;
+
+        // Find the best candidate header.
+        {
+            std::set<CBlockIndex*, CBlockIndexWorkComparator>::reverse_iterator it = setBlockIndexCandidates.rbegin();
+            if (it == setBlockIndexCandidates.rend())
+                return nullptr;
+            pindexNew = *it;
+        }
+
+        // Check whether all blocks on the path between the currently active chain and the candidate are valid.
+        // Just going until the active chain is an optimization, as we know all blocks in it are valid already.
+        CBlockIndex *pindexTest = pindexNew;
+        bool fInvalidAncestor = false;
+        while (pindexTest && !m_chain.Contains(pindexTest)) {
+            assert(pindexTest->HaveTxsDownloaded() || pindexTest->nHeight == 0);
+
+            // Pruned nodes may have entries in setBlockIndexCandidates for
+            // which block files have been deleted.  Remove those as candidates
+            // for the most work chain if we come across them; we can't switch
+            // to a chain unless we have all the non-active-chain parent blocks.
+            bool fFailedChain = pindexTest->nStatus & BLOCK_FAILED_MASK;
+            bool fMissingData = !(pindexTest->nStatus & BLOCK_HAVE_DATA);
+            if (fFailedChain || fMissingData) {
+                // Candidate chain is not usable (either invalid or missing data)
+                if (fFailedChain && (pindexBestInvalid == nullptr || pindexNew->nChainWork > pindexBestInvalid->nChainWork))
+                    pindexBestInvalid = pindexNew;
+                CBlockIndex *pindexFailed = pindexNew;
+                // Remove the entire chain from the set.
+                while (pindexTest != pindexFailed) {
+                    if (fFailedChain) {
+                        pindexFailed->nStatus |= BLOCK_FAILED_CHILD;
+                    } else if (fMissingData) {
+                        // If we're missing data, then add back to m_blocks_unlinked,
+                        // so that if the block arrives in the future we can try adding
+                        // to setBlockIndexCandidates again.
+                        m_blockman.m_blocks_unlinked.insert(
+                            std::make_pair(pindexFailed->pprev, pindexFailed));
+                    }
+                    setBlockIndexCandidates.erase(pindexFailed);
+                    pindexFailed = pindexFailed->pprev;
+                }
+                setBlockIndexCandidates.erase(pindexTest);
+                fInvalidAncestor = true;
+                break;
+            }
+            pindexTest = pindexTest->pprev;
+        }
+        if (!fInvalidAncestor)
+            return pindexNew;
+    } while(true);
 }
 
 bool CChainState::TestBlockIndex(CBlockIndex* pindexTest)
@@ -2881,6 +2953,7 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
     // we use m_cs_chainstate to enforce mutual exclusion so that only one caller may execute this function at a time
     LOCK(m_cs_chainstate);
 
+    bool foundBestPOP = false;
     CBlockIndex* pindexBestChain = nullptr;
     CBlockIndex* pindexNewTip = nullptr;
     int nStopAtHeight = gArgs.GetArg("-stopatheight", DEFAULT_STOPATHEIGHT);
@@ -2904,9 +2977,20 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
                 // (with the exception of shutdown due to hardware issues, low disk space, etc).
                 ConnectTrace connectTrace(mempool); // Destructed before cs_main is unlocked
 
-                if (pindexBestChain == nullptr) {
-                    pindexBestChain = FindBestChain();
+                if (pindexBestChain == nullptr || !foundBestPOP) {
+                    if (m_chain.Tip() == nullptr) {
+                        // we just started, so sync to most work chain first
+                        foundBestPOP = false;
+                        pindexBestChain = FindMostWorkChain();
+                    } else {
+                        // we already have a TIP, so attempt to find better (by POP score) block
+                        pindexBestChain = FindBestChain(pblock);
+                        foundBestPOP = true;
+                    }
                 }
+
+                // update best header after POP FR
+                pindexBestHeader = pindexBestChain;
 
                 // Whether we have anything to do at all.
                 if (pindexBestChain == nullptr || pindexBestChain == m_chain.Tip()) {
@@ -2931,7 +3015,7 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
                     assert(trace.pblock && trace.pindex);
                     GetMainSignals().BlockConnected(trace.pblock, trace.pindex, trace.conflictedTxs);
                 }
-            } while (!m_chain.Tip() || (starting_tip && CBlockIndexWorkComparator()(m_chain.Tip(), starting_tip)));
+            } while (!foundBestPOP || !m_chain.Tip() || (starting_tip && CBlockIndexWorkComparator()(m_chain.Tip(), starting_tip)));
             if (!blocks_connected) return true;
 
             const CBlockIndex* pindexFork = m_chain.FindFork(starting_tip);
