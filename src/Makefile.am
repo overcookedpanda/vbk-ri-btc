@@ -105,14 +105,12 @@ endif
 ### VeriBlock section start
 VBK_H = \
   vbk/entity/context_info_container.hpp \
-  vbk/init.hpp \
-  vbk/service_locator.hpp \
+  vbk/pop_common.hpp \
   vbk/pop_service.hpp \
-  vbk/pop_service_impl.hpp \
-  vbk/config.hpp \
-  vbk/typed_wrapper.hpp \
+  vbk/vbk.hpp \
   vbk/merkle.hpp \
   vbk/genesis.hpp \
+  vbk/genesis_common.hpp \
   vbk/altchainparam.hpp \
   vbk/p2p_sync.hpp \
   vbk/util.hpp \
@@ -300,8 +298,8 @@ libbitcoin_util_a-clientversion.$(OBJEXT): obj/build.h
 libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
 libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_server_a_SOURCES = \
-  vbk/pop_service_impl.cpp \
-  vbk/pop_service_impl.hpp \
+  vbk/pop_service.hpp \
+  vbk/pop_service.cpp \
   addrdb.cpp \
   addrman.cpp \
   banman.cpp \
@@ -333,6 +331,8 @@ libbitcoin_server_a_SOURCES = \
   policy/settings.cpp \
   pow.cpp \
   rest.cpp \
+  vbk/genesis.hpp \
+  vbk/genesis.cpp \
   vbk/rpc_register.hpp \
   vbk/rpc_register.cpp \
   vbk/p2p_sync.hpp \
@@ -494,6 +494,8 @@ libbitcoin_consensus_a_SOURCES = \
 libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
+  vbk/pop_common.hpp \
+  vbk/pop_common.cpp \
   base58.cpp \
   bech32.cpp \
   bloom.cpp \
@@ -521,6 +523,10 @@ libbitcoin_common_a_SOURCES = \
   script/sign.cpp \
   script/signingprovider.cpp \
   script/standard.cpp \
+  vbk/genesis_common.hpp \
+  vbk/genesis_common.cpp \
+  vbk/merkle.hpp \
+  vbk/merkle.cpp \
   versionbitsinfo.cpp \
   warnings.cpp \
   $(BITCOIN_CORE_H)
@@ -628,7 +634,6 @@ vbitcoin_cli_LDADD = \
   $(VERIBLOCK_POP_CPP_LIBS)
 
 vbitcoin_cli_LDADD += $(BOOST_LIBS) $(EVENT_LIBS)
-#
 
 # vbitcoin-tx binary #
 vbitcoin_tx_SOURCES = bitcoin-tx.cpp
@@ -641,6 +646,7 @@ vbitcoin_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
 vbitcoin_tx_LDADD = \
+  $(VERIBLOCK_POP_CPP_LIBS) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
@@ -649,7 +655,6 @@ vbitcoin_tx_LDADD = \
   $(LIBSECP256K1)
 
 vbitcoin_tx_LDADD += $(BOOST_LIBS) $(VERIBLOCK_POP_CPP_LIBS)
-#
 
 # vbitcoin-wallet binary #
 vbitcoin_wallet_SOURCES = bitcoin-wallet.cpp

@@ -12,9 +12,8 @@
 #include <netmessagemaker.h>
 #include <node/context.h>
 #include <rpc/blockchain.h>
-#include <vbk/pop_service.hpp>
-
-#include "veriblock/mempool.hpp"
+#include <vbk/pop_common.hpp>
+#include <veriblock/mempool.hpp>
 
 namespace VeriBlock {
 
@@ -37,36 +36,9 @@ struct PopDataNodeState {
     std::map<typename T::id_t, PopP2PState>& getMap();
 };
 
-template <>
-inline std::map<altintegration::ATV::id_t, PopP2PState>& PopDataNodeState::getMap<altintegration::ATV>()
-{
-    return atv_state;
-}
+PopDataNodeState& getPopDataNodeState(const NodeId& id);
 
-template <>
-inline std::map<altintegration::VTB::id_t, PopP2PState>& PopDataNodeState::getMap<altintegration::VTB>()
-{
-    return vtb_state;
-}
-
-template <>
-inline std::map<altintegration::VbkBlock::id_t, PopP2PState>& PopDataNodeState::getMap<altintegration::VbkBlock>()
-{
-    return vbk_blocks_state;
-}
-
-/** Map maintaining peer PopData state  */
-extern std::map<NodeId, std::shared_ptr<PopDataNodeState>> mapPopDataNodeState GUARDED_BY(cs_main);
-
-inline PopDataNodeState& getPopDataNodeState(const NodeId& id) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
-{
-    std::shared_ptr<PopDataNodeState> val = mapPopDataNodeState[id];
-    if (val == nullptr) {
-        val = std::make_shared<PopDataNodeState>();
-        mapPopDataNodeState[id] = val;
-    }
-    return *val;
-}
+void erasePopDataNodeState(const NodeId& id);
 
 } // namespace p2p
 
@@ -107,7 +79,7 @@ template <typename PopDataType>
 void offerPopData(CNode* node, CConnman* connman, const CNetMsgMaker& msgMaker) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     AssertLockHeld(cs_main);
-    auto& pop_mempool = VeriBlock::getService<VeriBlock::PopService>().getMemPool();
+    auto& pop_mempool = *VeriBlock::GetPop().mempool;
     const auto& data = pop_mempool.getMap<PopDataType>();
 
     auto& pop_state_map = getPopDataNodeState(node->GetId()).getMap<PopDataType>();
