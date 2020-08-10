@@ -361,8 +361,6 @@ CBlockIndex* PopServiceImpl::compareTipToBlock(const CBlock& block)
         return tip;
     }
 
-    auto state = altintegration::ValidationState();
-
     int result = compareForks(*tip, *candidate);
     if (
         // candidate has higher POP score

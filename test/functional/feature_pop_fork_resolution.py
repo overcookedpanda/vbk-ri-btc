@@ -34,7 +34,6 @@ class PopFr(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 4
         self.extra_args = [["-txindex"], ["-txindex"], ["-txindex"], ["-txindex"]]
-        self.extra_args = [x + ['-debug=cmpctblock'] for x in self.extra_args]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()

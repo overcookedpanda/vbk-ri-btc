@@ -2655,16 +2655,6 @@ CBlockIndex* CChainState::FindBestChain(std::shared_ptr<const CBlock> block)
     CBlockIndex* bestCandidate = m_chain.Tip();
     assert(bestCandidate && "Can find best chain only if TIP is not nullptr");
 
-    // when executed with new block, try to do POP FR between current tip and new block
-    if (block != nullptr) {
-        auto* candidate = LookupBlockIndex(block->GetHash());
-        assert(candidate && "candidate header must exist");
-        if(candidate->HaveTxsDownloaded() && TestBlockIndex(candidate)) {
-            // candidate has txes downloaded and can be used in POP FR
-            return pop.compareTipToBlock(*block);
-        }
-    }
-
     // we just started, or we received new block and NOT (yet) its transactions,
     // we need to determine best chain among all candidates
 
@@ -2978,7 +2968,7 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
                 ConnectTrace connectTrace(mempool); // Destructed before cs_main is unlocked
 
                 if (pindexBestChain == nullptr || !foundBestPOP) {
-                    if (m_chain.Tip() == nullptr) {
+                    if (m_chain.Tip() == nullptr || m_chain.Tip()->nHeight == 0) {
                         // we just started, so sync to most work chain first
                         foundBestPOP = false;
                         pindexBestChain = FindMostWorkChain();
