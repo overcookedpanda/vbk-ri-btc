@@ -125,6 +125,7 @@ BASE_SCRIPTS = [
     'feature_pop_mempool_getpop.py',
     'feature_pop_popdata_max_size.py',
     'feature_pop_e2e.py',
+    'feature_pop_bad_fork.py',
     ## end VeriBlock tests
     'wallet_keypool_topup.py',
     'feature_fee_estimation.py',
