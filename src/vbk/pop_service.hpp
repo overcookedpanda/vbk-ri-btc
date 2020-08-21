@@ -27,6 +27,7 @@ using PoPRewards = std::map<CScript, CAmount>;
 
 void SetPop(CDBWrapper& db);
 
+CBlockIndex* compareTipToBlock(const CBlock& block);
 bool acceptBlock(const CBlockIndex& indexNew, BlockValidationState& state);
 bool checkPopDataSize(const altintegration::PopData& popData, altintegration::ValidationState& state);
 bool popdataStatelessValidation(const altintegration::PopData& popData, altintegration::ValidationState& state);

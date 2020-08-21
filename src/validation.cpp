@@ -2900,9 +2900,20 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
                 // (with the exception of shutdown due to hardware issues, low disk space, etc).
                 ConnectTrace connectTrace(mempool); // Destructed before cs_main is unlocked
 
+                if (pblock && pindexBestChain == nullptr) {
+                    auto* blockindex = LookupBlockIndex(pblock->GetHash());
+                    assert(blockindex);
+                    if (blockindex->HaveTxsDownloaded()) {
+                        pindexBestChain = VeriBlock::compareTipToBlock(*pblock);
+                    }
+                }
+
                 if (pindexBestChain == nullptr) {
                     pindexBestChain = FindBestChain();
                 }
+
+                // update best known header
+                pindexBestHeader = pindexBestChain;
 
                 // Whether we have anything to do at all.
                 if (pindexBestChain == nullptr || pindexBestChain == m_chain.Tip()) {

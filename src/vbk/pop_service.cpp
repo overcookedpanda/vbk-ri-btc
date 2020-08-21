@@ -34,6 +34,47 @@ void SetPop(CDBWrapper& db)
     app.mempool->onAccepted<altintegration::VbkBlock>(VeriBlock::p2p::offerPopDataToAllNodes<altintegration::VbkBlock>);
 }
 
+static std::string FormatBlock(const CBlockIndex* index){
+    return fmt::format("{}:{}", index->nHeight, index->GetBlockHash().GetHex());
+}
+
+CBlockIndex* compareTipToBlock(const CBlock& block)
+{
+    AssertLockHeld(cs_main);
+    auto blockHash = block.GetHash();
+    auto* candidate = LookupBlockIndex(blockHash);
+    assert(candidate != nullptr && "block has no according header in block tree");
+
+    auto* tip = ChainActive().Tip();
+    if (!tip) {
+        // if tip is not set, candidate wins
+        return nullptr;
+    }
+
+    auto tipHash = tip->GetBlockHash();
+    if (tipHash == blockHash) {
+        // we compare tip with itself
+        return tip;
+    }
+
+    int result = compareForks(*tip, *candidate);
+    if (
+        // candidate has higher POP score
+        result < 0 ||
+        // POP score is equal, compare by chainwork
+        (result == 0 &&
+         // candidate chainwork is higher
+         tip->nChainWork < candidate->nChainWork)) {
+        // candidate wins
+        LogPrintf("%s: Candidate wins %s\n", __func__, FormatBlock(candidate));
+        return candidate;
+    }
+
+    // current chain wins
+    LogPrintf("%s: Current chain wins %s\n", __func__, FormatBlock(tip));
+    return tip;
+}
+
 bool acceptBlock(const CBlockIndex& indexNew, BlockValidationState& state)
 {
     AssertLockHeld(cs_main);
