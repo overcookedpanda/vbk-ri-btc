@@ -2903,8 +2903,12 @@ bool CChainState::ActivateBestChain(BlockValidationState& state, const CChainPar
                 if (pblock && pindexBestChain == nullptr) {
                     auto* blockindex = LookupBlockIndex(pblock->GetHash());
                     assert(blockindex);
-                    if (blockindex->HaveTxsDownloaded()) {
-                        pindexBestChain = VeriBlock::compareTipToBlock(*pblock);
+                    for (auto* candidate : setBlockIndexCandidates) {
+                        // if candidate has txs downloaded & currently arrived block is ancestor of `candidate`
+                        if (candidate->HaveTxsDownloaded() && TestBlockIndex(candidate) && candidate->GetAncestor(blockindex->nHeight) == blockindex) {
+                            // then do pop fr with candidate, instead of blockindex
+                            pindexBestChain = VeriBlock::compareTipToBlock(*pblock);
+                        }
                     }
                 }
 
